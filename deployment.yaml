@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-hello-world-deployment
+  namespace: ${K8S_NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-hello-world
+  template:
+    metadata:
+      labels:
+        app: temporal-hello-world
+    spec:
+      containers:
+      - name: temporal-hello-world
+        image: ${ECR_IMAGE}
+        env:
+        - name: TEMPORAL_CLOUD_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: temporal-cloud-config
+              key: TEMPORAL_CLOUD_NAMESPACE
+        - name: TEMPORAL_CLOUD_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: temporal-cloud-config
+              key: TEMPORAL_CLOUD_ADDRESS
+        - name: TEMPORAL_TASK_QUEUE
+          value: "hello-world"
+        - name: TEMPORAL_CLOUD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: temporal-cloud-api-key
+              key: TEMPORAL_CLOUD_API_KEY

@@ -1,80 +1,86 @@
-# name: Deploy to EKS
+name: Deploy to EKS
 
-# on:
-#   push:
-#     branches: [main]
+on:
+  push:
+    branches: [main]
 
-# permissions:
-#   id-token: write   # This is required for requesting the JWT
-#   contents: read    # This is required for actions/checkout
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
 
-# env:
-#   AWS_ROLE: ${{ vars.AWS_ROLE }}
-#   AWS_REGION: ${{ vars.AWS_REGION }}
+env:
+  AWS_ROLE: ${{ vars.AWS_ROLE }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
 
-# jobs:
-#   build-and-deploy:
-#     runs-on: ubuntu-latest
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-#       - name: Set up QEMU
-#         uses: docker/setup-qemu-action@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-#       - name: configure aws credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           role-to-assume: ${{ env.AWS_ROLE }}
-#           aws-region: ${{ env.AWS_REGION }}
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
 
-#       - name: Log in to Amazon ECR
-#         id: login-ecr
-#         uses: aws-actions/amazon-ecr-login@v1
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-#       - name: Build and push
-#         id: build-image
-#         env:
-#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-#           ECR_REPOSITORY: ${{ github.event.repository.name }}
-#           IMAGE_TAG: ${{ github.sha }}
-#         uses: docker/build-push-action@v4
-#         with:
-#           # platforms: linux/amd64,
-#           platforms: linux/arm64,
-#           push: false
-#           tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-#           outputs: type=docker
+      - name: Build and push
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ github.event.repository.name }}
+          IMAGE_TAG: ${{ github.sha }}
+        uses: docker/build-push-action@v4
+        with:
+          # platforms: linux/amd64,
+          platforms: linux/arm64,
+          push: false
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          outputs: type=docker
 
-#       - name: Tag image as latest
-#         env:
-#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-#           ECR_REPOSITORY: ${{ github.event.repository.name }}
-#           IMAGE_TAG: ${{ github.sha }}
-#         run: docker tag ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+    #   - name: Tag image as latest
+    #     env:
+    #       ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+    #       ECR_REPOSITORY: ${{ github.event.repository.name }}
+    #       IMAGE_TAG: ${{ github.sha }}
+        # run: docker tag ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
   
-#       - name: Push image to ECR
-#         env:
-#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-#           ECR_REPOSITORY: ${{ github.event.repository.name }}
-#         run: docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+      - name: Push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ github.event.repository.name }}
+        run: docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           
-#       - name: Install kubectl
-#         uses: azure/setup-kubectl@v2.0
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v2.0
 
-#       - name: Update kube config
-#         run: aws eks update-kubeconfig
+      - name: Update kube config
+        run: aws eks update-kubeconfig --name brendan-eks-g9hP8Qms
 
-#       - name: Replace placeholders in Kubernetes YAML
-#         run: |
-#           cat <<EOF | envsubst > k8s-deploy.yaml
-#           $(< ./deployment.yaml)
-#           EOF
+      - name: Replace placeholders in Kubernetes YAML
+        env:
+          K8S_NAMESPACE: ${{ github.event.repository.name }}
+          ECR_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}:${{ github.sha }}
+        run: |
+          cat <<EOF | envsubst > k8s-deploy.yaml
+          $(< ./deployment.yaml)
+          EOF
 
-#       - name: Deploy container to EKS
-#         run: |
-#           kubectl apply -f k8s-deploy.yaml
+      - name: Sanity check
+        run: cat k8s-deploy.yaml
+
+      - name: Deploy container to EKS
+        run: |
+          kubectl apply -f k8s-deploy.yaml

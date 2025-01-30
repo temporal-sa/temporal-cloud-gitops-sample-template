@@ -7,6 +7,6 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=amd64 go build -o helloworld ./worker
+RUN CGO_ENABLED=0 GOOS=linux go build -o helloworld ./worker
 
 CMD ["./helloworld"]

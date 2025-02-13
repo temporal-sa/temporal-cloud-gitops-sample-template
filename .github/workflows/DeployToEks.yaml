@@ -11,6 +11,7 @@ permissions:
 env:
   AWS_ROLE: ${{ vars.AWS_ROLE }}
   AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER: ${{ vars.EKS_CLUSTER }}
 
 jobs:
   build-and-deploy:
@@ -66,7 +67,7 @@ jobs:
         uses: azure/setup-kubectl@v2.0
 
       - name: Update kube config
-        run: aws eks update-kubeconfig --name brendan-eks-g9hP8Qms
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }}
 
       - name: Replace placeholders in Kubernetes YAML
         env:
